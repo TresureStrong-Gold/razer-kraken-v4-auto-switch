@@ -25,6 +25,7 @@ class HidDiag
     static DateTime t0 = DateTime.Now;
     static object lk = new object();
 
+    static string filter = "vid_1532&pid_056c";
     static List<string> Paths()
     {
         var res = new List<string>();
@@ -40,7 +41,7 @@ class HidDiag
             if (SetupDiGetDeviceInterfaceDetail(set, ref d, buf, req, out req, IntPtr.Zero))
             {
                 string p = Marshal.PtrToStringAuto(new IntPtr(buf.ToInt64() + 4));
-                if (p.ToLower().Contains("vid_1532&pid_056c")) res.Add(p);
+                if (p.ToLower().Contains(filter)) res.Add(p);
             }
             Marshal.FreeHGlobal(buf);
         }
@@ -71,8 +72,9 @@ class HidDiag
         }
     }
 
-    static void Main()
+    static void Main(string[] args)
     {
+        if (args.Length > 0) filter = args[0].ToLower();
         foreach (var p in Paths()) { var pp = p; new Thread(() => Reader(pp)) { IsBackground = true }.Start(); }
         Thread.Sleep(int.Parse(Environment.GetEnvironmentVariable("DIAG_SECS") ?? "60") * 1000);
     }
