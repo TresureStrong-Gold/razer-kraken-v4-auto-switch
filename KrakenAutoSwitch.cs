@@ -36,28 +36,35 @@ class TrayApp : ApplicationContext
     readonly string dir = AppDomain.CurrentDomain.BaseDirectory;
     readonly NotifyIcon tray = new NotifyIcon();
     readonly SynchronizationContext ui = SynchronizationContext.Current ?? new WindowsFormsSynchronizationContext();
-    readonly ToolStripMenuItem stateItem = new ToolStripMenuItem("상태: 알 수 없음") { Enabled = false };
-    readonly ToolStripMenuItem autoStartItem = new ToolStripMenuItem("Windows 시작 시 자동 실행");
+    ToolStripMenuItem stateItem, autoStartItem;
     int state = -1; // -1 unknown, 0 off, 1 on
     string gameName = "Razer Kraken V4 - Game", chatName = "Razer Kraken V4 - Chat", fallbackName = "";
-    string[] saved = new string[3]; // 직전 기본 장치 id (console, multimedia, communications)
+    string lang = "auto"; // auto | en | ko
+    bool ko;
+    string[] saved = new string[3]; // previous default device ids (console, multimedia, communications)
+
+    // UI text: English by default, Korean when the OS UI language is Korean (or language=ko)
+    string T(string en, string kr) { return ko ? kr : en; }
 
     public TrayApp()
     {
         LoadConfig();
         LoadSaved();
+        ko = lang == "ko" || (lang == "auto" && System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "ko");
 
+        stateItem = new ToolStripMenuItem("") { Enabled = false };
+        autoStartItem = new ToolStripMenuItem(T("Start with Windows", "Windows 시작 시 자동 실행"));
         var menu = new ContextMenuStrip();
         menu.Items.Add(stateItem);
         menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add("Kraken으로 지금 전환", null, (s, e) => SwitchTo(true));
-        menu.Items.Add("이전 장치로 지금 복원", null, (s, e) => SwitchTo(false));
+        menu.Items.Add(T("Switch to Kraken now", "Kraken으로 지금 전환"), null, (s, e) => SwitchTo(true));
+        menu.Items.Add(T("Restore previous device now", "이전 장치로 지금 복원"), null, (s, e) => SwitchTo(false));
         menu.Items.Add(new ToolStripSeparator());
         autoStartItem.Checked = IsAutoStart();
         autoStartItem.Click += (s, e) => { SetAutoStart(!IsAutoStart()); autoStartItem.Checked = IsAutoStart(); };
         menu.Items.Add(autoStartItem);
-        menu.Items.Add("로그 열기", null, (s, e) => { try { System.Diagnostics.Process.Start(Path.Combine(dir, "KrakenAutoSwitch.log")); } catch { } });
-        menu.Items.Add("종료", null, (s, e) => { tray.Visible = false; Application.Exit(); });
+        menu.Items.Add(T("Open log", "로그 열기"), null, (s, e) => { try { System.Diagnostics.Process.Start(Path.Combine(dir, "KrakenAutoSwitch.log")); } catch { } });
+        menu.Items.Add(T("Exit", "종료"), null, (s, e) => { tray.Visible = false; Application.Exit(); });
         tray.ContextMenuStrip = menu;
         SetState(-1);
         tray.Visible = true;
@@ -70,13 +77,13 @@ class TrayApp : ApplicationContext
     {
         string p = Path.Combine(dir, "KrakenAutoSwitch.ini");
         if (!File.Exists(p))
-            File.WriteAllText(p, "; 장치 이름은 '포함' 일치입니다 (소리 설정에 보이는 이름 일부).\r\ngame=" + gameName + "\r\nchat=" + chatName + "\r\n; 헤드폰을 끌 때 저장된 직전 장치가 없으면 이 장치로 전환 (비우면 아무것도 안 함)\r\nfallback=\r\n", Encoding.UTF8);
+            File.WriteAllText(p, "; Device names are substring matches (part of the name shown in Sound settings). / 장치 이름은 '포함' 일치입니다.\r\ngame=" + gameName + "\r\nchat=" + chatName + "\r\n; Device to switch to on power-off if no previous device was remembered (empty = do nothing).\r\n; 헤드폰을 끌 때 저장된 직전 장치가 없으면 이 장치로 전환 (비우면 아무것도 안 함)\r\nfallback=\r\n; UI language: auto (follow Windows) | en | ko\r\nlanguage=auto\r\n", Encoding.UTF8);
         foreach (var line in File.ReadAllLines(p, Encoding.UTF8))
         {
             int i = line.IndexOf('=');
             if (line.StartsWith(";") || i < 0) continue;
             string k = line.Substring(0, i).Trim().ToLower(), v = line.Substring(i + 1).Trim();
-            if (k == "game") gameName = v; else if (k == "chat") chatName = v; else if (k == "fallback") fallbackName = v;
+            if (k == "game") gameName = v; else if (k == "chat") chatName = v; else if (k == "fallback") fallbackName = v; else if (k == "language") lang = v.ToLower();
         }
     }
 
@@ -122,9 +129,9 @@ class TrayApp : ApplicationContext
             tray.Icon = Icon.FromHandle(bmp.GetHicon());
             if (old != null) old.Dispose();
         }
-        string t = s == 1 ? "헤드폰 켜짐" : s == 0 ? "헤드폰 꺼짐" : "헤드폰 상태 알 수 없음 (다음 on/off 때 확정)";
-        stateItem.Text = "상태: " + t;
-        tray.Text = "Kraken 자동 전환 - " + t;
+        string t = s == 1 ? T("Headset on", "헤드폰 켜짐") : s == 0 ? T("Headset off", "헤드폰 꺼짐") : T("Headset state unknown (until next on/off)", "헤드폰 상태 알 수 없음 (다음 on/off 때 확정)");
+        stateItem.Text = T("Status: ", "상태: ") + t;
+        tray.Text = T("Kraken Auto Switch - ", "Kraken 자동 전환 - ") + t;
     }
 
     // ---------- HID 감시 ----------
@@ -137,7 +144,7 @@ class TrayApp : ApplicationContext
                 string path = Hid.FindPath(0x1532, 0x056C, 0xFF14);
                 if (path != null) Hid.ReadLoop(path, OnReport);
             }
-            catch (Exception ex) { Log("HID 오류: " + ex.Message); }
+            catch (Exception ex) { Log("HID error: " + ex.Message); }
             Thread.Sleep(2000); // 동글 재연결 / 절전 복귀 대비
         }
     }
@@ -153,7 +160,7 @@ class TrayApp : ApplicationContext
     void Apply(int s)
     {
         if (s == state) return;
-        Log("헤드폰 " + (s == 1 ? "ON" : "OFF"));
+        Log("Headset " + (s == 1 ? "ON" : "OFF"));
         SetState(s);
         SwitchTo(s == 1);
     }
@@ -168,13 +175,13 @@ class TrayApp : ApplicationContext
             var game = find(gameName); var chat = find(chatName) ?? game;
             if (kraken)
             {
-                if (game == null) { Log("Kraken Game 장치를 찾지 못함"); return; }
+                if (game == null) { Log("Kraken Game device not found"); return; }
                 // 이미 Kraken 이 기본이 아닐 때만 '직전 장치'로 저장
                 var cur = new[] { Audio.GetDefault(0), Audio.GetDefault(1), Audio.GetDefault(2) };
                 bool curIsKraken = cur[0] == game.Id || (chat != null && cur[0] == chat.Id);
                 if (!curIsKraken) { saved = cur; SaveSaved(); }
                 Audio.SetDefault(game.Id, 0); Audio.SetDefault(game.Id, 1); Audio.SetDefault(chat.Id, 2);
-                Log("-> " + game.Name + " / 통신: " + chat.Name);
+                Log("-> " + game.Name + " / comms: " + chat.Name);
             }
             else
             {
@@ -188,11 +195,11 @@ class TrayApp : ApplicationContext
                     if (id == null) continue;
                     Audio.SetDefault(id, role);
                 }
-                Log("복원: " + string.Join(" | ", Array.ConvertAll(new[] { Audio.GetDefault(0), Audio.GetDefault(1), Audio.GetDefault(2) }, id => devs.Find(d => d.Id == id) != null ? devs.Find(d => d.Id == id).Name : "?")));
+                Log("Restored: " + string.Join(" | ", Array.ConvertAll(new[] { Audio.GetDefault(0), Audio.GetDefault(1), Audio.GetDefault(2) }, id => devs.Find(d => d.Id == id) != null ? devs.Find(d => d.Id == id).Name : "?")));
             }
-            tray.ShowBalloonTip(1500, "Kraken 자동 전환", kraken ? "Kraken 으로 출력 전환" : "이전 출력 장치로 복원", ToolTipIcon.None);
+            tray.ShowBalloonTip(1500, T("Kraken Auto Switch", "Kraken 자동 전환"), kraken ? T("Output switched to Kraken", "Kraken 으로 출력 전환") : T("Restored previous output device", "이전 출력 장치로 복원"), ToolTipIcon.None);
         }
-        catch (Exception ex) { Log("전환 오류: " + ex); }
+        catch (Exception ex) { Log("Switch error: " + ex); }
     }
 }
 

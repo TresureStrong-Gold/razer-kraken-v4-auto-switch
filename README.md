@@ -32,8 +32,8 @@ Windows keeps the dongle's audio devices "connected" even when the headset is of
    Download `KrakenAutoSwitch.exe` from [Releases](https://github.com/TresureStrong-Gold/razer-kraken-v4-auto-switch/releases/latest).
 2. 원하는 폴더에 넣고 실행 (설정·로그 파일이 같은 폴더에 생성됩니다. `Downloads`보다 `%LOCALAPPDATA%\KrakenAutoSwitch` 같은 고정 폴더를 권장)
    Put it in a permanent folder (settings and log files are created next to it) and run it.
-3. 트레이 아이콘 우클릭 → "Windows 시작 시 자동 실행" 체크
-   Right-click the tray icon and enable "Windows 시작 시 자동 실행" (start with Windows).
+3. 트레이 아이콘 우클릭 → "Start with Windows"(한국어 Windows 에서는 "Windows 시작 시 자동 실행") 체크
+   Right-click the tray icon and enable "Start with Windows".
 
 > ⚠️ **SmartScreen 경고 / SmartScreen warning**
 > 코드 서명이 없는 개인 프로젝트라 "Windows의 PC 보호" 경고가 뜰 수 있습니다. "추가 정보 → 실행"을 누르세요. 못 미더우면 아래 방법 2로 소스에서 직접 빌드할 수 있고, Releases 의 SHA-256 으로 파일을 검증할 수 있습니다.
@@ -45,7 +45,9 @@ Run `build.bat` (uses only the .NET Framework compiler that ships with Windows; 
 
 ## 사용법 / Usage
 
-![Tray menu](docs/tray-menu.png)
+English UI (default) / 한국어 UI (Windows 표시 언어가 한국어면 자동):
+
+![Tray menu (English)](docs/tray-menu.png) ![트레이 메뉴 (한국어)](docs/tray-menu.ko.png)
 
 - 아이콘 색: 초록=켜짐, 회색=꺼짐, 주황=아직 모름(첫 on/off 이벤트 전)
   Icon colors: green = on, gray = off, orange = not known yet (until the first on/off event).
@@ -55,9 +57,13 @@ Run `build.bat` (uses only the .NET Framework compiler that ships with Windows; 
 첫 실행 시 `KrakenAutoSwitch.ini`가 생성됩니다. / A `KrakenAutoSwitch.ini` is created on first run.
 
 ```ini
-game=Razer Kraken V4 - Game   ; device name, substring match / 장치 이름 '포함' 일치
+; Device names are substring matches / 장치 이름은 '포함' 일치
+game=Razer Kraken V4 - Game
 chat=Razer Kraken V4 - Chat
-fallback=                     ; device to restore if nothing was remembered / 저장된 장치가 없을 때 복원할 장치
+; Device to restore if nothing was remembered / 저장된 장치가 없을 때 복원할 장치
+fallback=
+; UI language: auto (follow Windows) | en | ko
+language=auto
 ```
 
 Windows 가 한국어가 아니어도 장치 이름이 `Razer Kraken V4 - Game` 을 포함하면 동작합니다.

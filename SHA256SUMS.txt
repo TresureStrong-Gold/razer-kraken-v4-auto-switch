@@ -1,0 +1,2 @@
+9d3a0493f5886ed36ee1a8dd334bb103535da8f6c51b4186ff54355dcc9dac9f  KrakenAutoSwitch.exe
+3628bb72df0dc74447c8e1efecaedc875fdb3bd329bfcb6de415698c6d3dd95c  HidDiag.exe
